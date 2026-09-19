@@ -21,6 +21,8 @@ resource "aws_instance" "jenkins_master" {
   key_name      = var.key_name
   count         = 1
 
+  iam_instance_profile = aws_iam_instance_profile.jenkins_instance_profile.name
+
 
     lifecycle {
     ignore_changes = [ami]  #pinned AMI, ignore drift to avoid forced replacement

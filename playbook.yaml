@@ -1,0 +1,94 @@
+---
+- name: Install pipeline tooling inside Jenkins container
+  hosts: webservers
+  become: true    # runs commands as sudo
+
+
+  tasks:
+    # Update/upgrade all packages, equivalent to sudo dnf update && sudo dnf upgrade
+    - name: Update all packages               # Label shown in the playbook run output
+      dnf:                                    # Use Ansible's built-in module for dnf (Amazon Linux/RHEL package manager)
+        name: "*"                             # Target ALL installed packages (wildcard), not just one specific package
+        state: latest
+  
+       # Installs Docker itself
+    - name: Install Docker               # Label shown in the playbook run output
+      dnf:                               # Use Ansible's dnf module (Amazon Linux/RHEL package manager)
+        name: docker                     # Target specifically the "docker" package, not everything
+        state: present                   # Desired outcome: just make sure it's installed (any version is fine)
+
+    # Starts Docker now, and enables it so it auto-starts on future reboots
+    - name: Start and enable Docker service   # Label shown in the playbook run output
+      systemd:                                # Use Ansible's module for controlling services (systemd)
+        name: docker                          # Target the docker service specifically
+        state: started                        # Make sure it's running right now
+        enabled: true                         # Also make sure it auto-starts on future reboots
+
+    # Adds ec2-user to the docker group so it can run docker commands without sudo
+    - name: Add ec2-user to docker group  # Label shown in the playbook run output
+      user:                               # Use Ansible's module for managing user accounts
+        name: ec2-user                    # Target this specific existing user
+        groups: docker                    # The group to add this user to
+        append: true                      # Add to this group WITHOUT removing them from any other groups they're already in
+
+    # Grabs the docker group's numeric ID, needed for the --group-add flag below
+    - name: Get docker group ID           # Label shown in the playbook run output
+      shell: "getent group docker | cut -d: -f3"   # Raw shell command: look up the docker group's numeric ID and extract just the number
+      register: docker_gid                # Save the command's output into a variable named "docker_gid" for later use
+      changed_when: false                 # Tell Ansible this task never counts as "changing" anything (it's just reading info, not modifying the system)
+
+    # Makes sure the host directory exists and is owned by UID 1000, matching Jenkins' internal user - (added after run fail due to permissions)
+    # without this, Jenkins can't write its own config and fails to start (permission denied).
+    - name: Ensure Jenkins home directory has correct ownership
+      file:
+        path: /var/jenkins_home
+        state: directory
+        owner: "1000"
+        group: "1000"
+        mode: '0755'
+
+    # Runs the Jenkins container itself, mirroring the manual docker run command. added ( --restart unless-stopped)
+    - name: Run Jenkins container
+      command: >
+        docker run -d
+        --name jenkins
+        --restart unless-stopped             
+        -p 8080:8080
+        -v /var/jenkins_home:/var/jenkins_home
+        -v /var/run/docker.sock:/var/run/docker.sock
+        --group-add {{ docker_gid.stdout }}
+        jenkins/jenkins:lts
+      args:
+        creates: /var/jenkins_home/config.xml   # skip this task if Jenkins already ran before (idempotency)
+
+    # Installs the CLI tools the pipeline needs inside the Jenkins container
+    - name: Install pipeline tooling inside Jenkins container
+      shell: |
+        docker exec -u root jenkins bash -c '
+          set -e
+
+          # docker CLI — lets the pipeline build/push images via the mounted socket
+          command -v docker || (apt-get update && apt-get install -y docker.io unzip curl)
+
+          # AWS CLI v2 — ECR login and kubeconfig
+          command -v aws || (
+            curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip &&
+            unzip -q /tmp/awscliv2.zip -d /tmp &&
+            /tmp/aws/install
+          )
+
+          # kubectl — must match the cluster minor version (1.31)
+          command -v kubectl || (
+            curl -sSLo /usr/local/bin/kubectl https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl &&
+            chmod 0755 /usr/local/bin/kubectl
+          )
+
+          # helm — deploys the chart
+          command -v helm || (
+            curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          )
+        '
+
+      # Restarts Jenkins so the newly installed docker CLI takes effect cleanly
+    - name: Restart Jenkins container
+      command: docker restart jenkins
