@@ -22,3 +22,19 @@ aws ec2 describe-instances \
     --filters "Name=tag:eks:cluster-name,Values=tech_challenge_2_eks" \
     --query "Reservations[].Instances[].[InstanceId, State.Name]" \
     --output text
+
+aws ec2 stop-instances --instance-ids i-0bd14aa51387647da
+aws ec2 stop-instances --instance-ids i-01cb6afeff95ed0fa
+
+aws ec2 start-instances --instance-ids i-0bd14aa51387647da
+aws ec2 start-instances --instance-ids i-01cb6afeff95ed0fa
+
+
+scp -i ~/.ssh/1_percent_keypair517.pem \
+  scripts/preflight.sh \
+  ec2-user@<jenkins-public-ip>:~/preflight.sh
+
+scp -i <key>  <local file>  <user>@<host>:<remote path>
+ |                 |                        |
+ |                 └── on your Mac          └── where it lands
+ └── secure copy (scp = ssh + cp)
