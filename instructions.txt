@@ -14,6 +14,7 @@ aws eks update-nodegroup-config \
   --scaling-config minSize=1,maxSize=4,desiredSize=1
 
 aws eks update-nodegroup-config   --cluster-name tech_challenge_2_eks   --nodegroup-name tech_challenge_2-eks-node-group   --scaling-config minSize=1,maxSize=4,desiredSize=1
+aws eks update-nodegroup-config   --cluster-name tech_challenge_2_eks   --nodegroup-name tech_challenge_2-eks-node-group   --scaling-config minSize=0,maxSize=1,desiredSize=0
 
 
   check to see nodes status
