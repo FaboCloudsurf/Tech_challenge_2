@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hello              # matches the existing Helm release, so Argo adopts it
+  namespace: argocd
+spec:
+  project: default
+
+  # WHERE the desired state lives
+  source:
+    repoURL: https://github.com/FaboCloudsurf/Tech_challenge_2.git
+    targetRevision: gitops
+    path: helm/hello-world
+
+  # WHERE it gets applied
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+
+  syncPolicy:
+    automated:
+      prune: true       # delete objects removed from git
+      selfHeal: true    # undo manual kubectl changes

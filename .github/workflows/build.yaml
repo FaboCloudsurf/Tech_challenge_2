@@ -1,0 +1,52 @@
+name: Build and push to ECR
+
+# Only run when the app changes — not when this workflow updates values.yaml
+on:
+  push:
+    branches: [gitops]
+    paths:
+      - 'app/**'
+      - '.github/workflows/build.yml'
+
+permissions:
+  id-token: write    # required for OIDC
+  contents: write    # required to commit the new tag back
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO: 730335577638.dkr.ecr.us-east-1.amazonaws.com/tech_challenge_2-ecr-app
+  ROLE_ARN: arn:aws:iam::730335577638:role/tech_challenge_2-github-actions-role
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+    
+      # Exchanges GitHub's OIDC token for temporary AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        run: |
+          IMAGE_TAG=${GITHUB_SHA::7}
+          docker build -t $ECR_REPO:$IMAGE_TAG ./app
+          docker push $ECR_REPO:$IMAGE_TAG
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+      # This commit is what Argo CD reacts to — git is the trigger, not ECR
+      - name: Update Helm values with new tag
+        run: |
+          sed -i "s|^  tag: .*|  tag: \"${IMAGE_TAG}\"|" helm/hello-world/values.yaml
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add helm/hello-world/values.yaml
+          git commit -m "ci: image tag ${IMAGE_TAG}"
+          git push
