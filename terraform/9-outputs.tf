@@ -51,3 +51,7 @@ output "private_subnet_ids" {
 output "cluster_autoscaler_role_arn" {
   value = aws_iam_role.cluster_autoscaler.arn
 }
+
+output "github_actions_role_arn" {
+  value = aws_iam_role.github_actions.arn
+}
