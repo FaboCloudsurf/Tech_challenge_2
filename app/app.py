@@ -4,7 +4,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def hello_world():
-    return 'Hello from Dockerized Flask App!'
+    return 'Hello from Dockerized Flask App loop!'
 
 @app.route('/health')
 def health():
