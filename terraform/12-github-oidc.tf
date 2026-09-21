@@ -45,7 +45,7 @@ resource "aws_iam_role" "github_actions" {
         Principal = { Federated = aws_iam_openid_connect_provider.github.arn }
         Condition = {
             StringEquals = {"token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"}
-            StringLike = {"token.actions.githubusercontent.com:sub" = "repo:FaboCloudsurf/Tech_challenge_2:*"}
+            StringLike = {"token.actions.githubusercontent.com:sub" = "repo:FaboCloudsurf@140220685/Tech_challenge_2@1357809367:*"}
         }
       },
     ]
