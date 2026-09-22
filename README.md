@@ -641,18 +641,7 @@ Components that bill continuously and cannot be suspended without deletion:
 
 ---
 
-## Operational notes
 
-Several failures encountered during this build shared one characteristic: **a component reporting `1/1 Running` is not evidence that it is working.**
-
-| Failure | Presentation | Root cause |
-|---|---|---|
-| ALB controller crash loop | `failed to fetch VPC ID from instance metadata` | Metadata unreachable across the pod network hop — resolved with explicit `--set region` and `--set vpcId` |
-| Ingress never provisioned | `AccessDenied: elasticloadbalancing:DescribeListenerAttributes` | IAM policy sourced from an older release tag than the installed controller |
-| Nodes never scaled | Autoscaler status frozen at `Initializing` | Chart installed v1.35.0 against a 1.31 cluster; it blocks on APIs absent in that version |
-| Build server had no credentials | `Unable to locate credentials` on the host itself | `aws_instance` never referenced the instance profile |
-| Build server credentials failed only in the container | Host succeeded, container failed | Default metadata hop limit of 1 — raised to 2 |
-| Actions could not assume its role | `Not authorized to perform sts:AssumeRoleWithWebIdentity` | GitHub's immutable subject claim — the `sub` carries numeric owner and repository IDs, which the trust policy did not match |
 
 Version tolerance differs by component:
 
